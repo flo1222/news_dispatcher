@@ -1,15 +1,3 @@
-#Database connection:
-# import os
-# import psycopg2
-# DATABASE_URL = os.environ['DATABASE_URL']
-# conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-
-# conn = psycopg2.connect(
-#     host="localhost",
-#     database="suppliers",
-#     user="postgres",
-#     password="Abcd1234")
-
 # Here is a list of souces to scrape everyday for content:
 sources_list = [
     'https://www.usinenouvelle.com/quotidien-des-usines/',
@@ -24,42 +12,48 @@ sources_list = [
 
 from bs4 import BeautifulSoup
 import requests
-
 import os
 from dotenv import load_dotenv
 load_dotenv()
+from models import Article, Site
 
 def collect_usine_nouvelle():
     """aaa"""
-    article_list= {}
-    article = {}
     url = 'https://www.usinenouvelle.com/quotidien-des-usines/'
     base_url = 'https://www.usinenouvelle.com'
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
-    # test = soup.find_all("section", class_="colonne1")
-    bloc = soup.find("section", class_="blocType1")
-    article["url"] = base_url + bloc.find("a")["href"]
-    
-    #Next, scrape the metadata of the article_url
-    response = requests.get(article["url"])
-    soup = BeautifulSoup(response.content, "html.parser")
-    # article["image"] = soup.find("meta", property="og:image")["content"]
-    # article["description"] = soup.find("meta", property="og:description")["content"]
-    # article["source"] = soup.find("meta", property="og:site_name")["content"]
-    # article["url"] = url
 
-            #    url = item.split()[0]
-            # news = {}
-            # response = requests.get(url)
-            # soup = BeautifulSoup(response.content, "html.parser")
-            # news["title"] = soup.find("meta", property="og:title")["content"]
-            # news["image"] = soup.find("meta", property="og:image")["content"]
-            # news["description"] = soup.find("meta", property="og:description")["content"]
-            # news["source"] = soup.find("meta", property="og:site_name")["content"]
-            # news["url"] = url
-    return article["url"]
+    link_list = []
+    # Get the url of all the articles in the main page
+    blocs = soup.find_all("section", itemprop="itemListElement")
+    for bloc in blocs:
+        link_list.append(base_url + bloc.find("a")["href"])
+    # Next, scrape the metadata of each url, as well as the description
+    article_list= []
+    for url in link_list:
+        article = {}
+        article["url"] = url
+        response = requests.get(article["url"])
+        soup = BeautifulSoup(response.content, "html.parser")
+        article["image"] = soup.find("meta", property="og:image")["content"]
+        article["description"] = soup.find("h2").text.strip().replace('\n', ' ').replace('\r', '')\
+                .replace('\t', '').replace('   ', '')
+        article["tag_description"] = soup.find("meta", property="og:description")["content"]
+        article["source"] = soup.find("meta", property="og:site_name")["content"]
+        article_list.append(article)
+        article = Article(url=url, image_url=article["image"],\
+                 description=article["description"], source=article["source"])
+        article.save()
+    return article_list
+
+def test():
+    return None
+
 
 if __name__ == "__main__":
-    print(collect_usine_nouvelle())
-    print(os.getenv("SECRET_KEY"))
+    article_list = collect_usine_nouvelle()
+    print(len(article_list))
+    # for article in article_list:
+    #     print(article["url"])
+    #     print(article["description"])
