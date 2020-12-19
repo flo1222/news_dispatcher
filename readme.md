@@ -1,0 +1,1 @@
+A package aimed at scraping each day the news articles from certain sources (in the first instance, French company news) and extracting data such as links, titles, description, source.
