@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -20,8 +22,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '9v!!w-5jh13eg^5heu0^_2x2t=fd1jwwppcv8=3xp5m8vl@@g_'
-
+SECRET_KEY = os.getenv("SECRET_KEY ")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -74,12 +75,13 @@ WSGI_APPLICATION = 'news_dispatcher.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'darmuki8g7l0as',
-        'USER': 'kwnmrjwggodqso',
-        'PASSWORD': '9532b5be12184319c9c00e8025080421fca6526d2afa99e29ba5b9d8733470cb',
+        'USER': os.getenv("DB_USER"),
+        'PASSWORD': os.getenv("DB_PASSWORD"),
         'HOST': 'ec2-54-247-79-178.eu-west-1.compute.amazonaws.com',
         'PORT': '5432',
     }
