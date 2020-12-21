@@ -13,6 +13,8 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE','news_dispatcher.settings')
 import django
 django.setup()
 import datetime
+import re
+from selenium import webdriver
 from news_dispatcher_app.models import Article, Site
 
 # Here is a list of souces to scrape everyday for content:
@@ -32,6 +34,7 @@ sources_list = [
 def check_for_duplicates():
     count = 0
     for row in Article.objects.all().reverse():
+    # for row in Article.objects.all():
         if Article.objects.filter(url=row.url).count() > 1:
             row.delete()
             count += 1
@@ -44,6 +47,9 @@ def get_article_date(soup, source = 'default'):
         date_time_obj = datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S')
     if source == 'LesEchos':
         date = soup.find("meta", property="article:published_time")["content"]
+        date_time_obj = datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S+01:00')
+    if source == 'Ouest-France.fr':
+        date = soup.find("time")["datetime"]
         date_time_obj = datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S+01:00')
     return date_time_obj
 
@@ -100,6 +106,7 @@ def collect_usine_nouvelle():
     article_list= []
     for url in link_list:
         article_list.append(generic_article_scraping(url, source = source, delay=5))
+    print(f'# of articles sourced from {source} = {len(article_list)}')
     return article_list
 
 def collect_les_echos():
@@ -123,51 +130,69 @@ def collect_les_echos():
     # Next, scrape the metadata of each url, as well as the description
     article_list= []
     for url in link_list:
-        print(url)
         article_list.append(generic_article_scraping(url, source = source, delay=5))
+    print(f'# of articles sourced from {source} = {len(article_list)}')
+    return article_list
+
+
+def collect_ouest_france():
+    """A function which scrapes the links and descriptions of the 
+    articles of the eco page of "Le Dauphine Libéré".
+    The scraped content is then loaded to a database for storage."""
+
+    source = "Ouest-France.fr"
+    # L'url consultée est la page 2 car elle est mieux organisée que la 1.
+    # Il y aura donc un delta de date de rentrée d'information
+    url = 'https://www.ouest-france.fr/economie/entreprises/?page=2'
+    link_list = []
+    # Selenium is needed since Ouest-France returns almost empty page from requests.
+    browser = webdriver.Chrome()
+    browser.get(url)
+    response = browser.page_source
+    browser.quit()
+    #After getting the html content, we use beautiful soup to scrape
+    soup = BeautifulSoup(response, "html.parser")
+    # soup = BeautifulSoup(open("of2.html"), "html.parser")
+    # Directly scrape the content of the page
+    blocs = soup.find_all("article", class_="teaser-media clearfix") 
+    article_list = []
+    for bloc in blocs:
+        article = {}
+        article["url"] = bloc.find("a")["href"]
+        image = bloc.find("img")
+        # Images are lazy_loaded, so only the first 3 can be scrapped with an src attribute
+        if image.has_attr("src"):
+            article["image"] = image["src"]
+        #The rest is scrapped looking at class lazyloaded, then searching for urls in the attribute data-oflazyload"
+        #The regex search returns a list of image urls of increasing size, we take the 3rd one which is quite large.
+        elif image.has_attr("data-oflazyload"):
+            article["image"] = re.findall(r'(https?://[^\s]+)', image["data-oflazyload"])[2]  
+        # In the meantime, a placeholder is set.
+        else:
+            article["image"] = 'https://www.sfi.fr/wp-content/themes/unbound/images/No-Image-Found-400x264.png'
+        article["description"] = bloc.find("p").text.strip()
+        article["source"] = source
+        article["date"] = get_article_date(bloc, source = source)
+        article_list.append(article)
+        # Load the article in the database
+        add_article = Article(url=article["url"], image_url=article["image"],\
+                description=article["description"], source=article["source"],\
+                pub_date = article["date"])
+        add_article.save()
+    print(f'# of articles sourced from {source} = {len(article_list)}')
     return article_list
 
 def test():
+    string_src = '&quot;offset&quot;:200,&quot;srcset&quot;:&quot;https://media.ouest-france.fr/v1/pictures/MjAyMDEyNzg3OWQ4ZDM2Y2QzNDI4ZWU3ZDBlNWI5YTJmZDdlZDk?width=320&amp;height=180&amp;focuspoint=50%2C25&amp;cropresize=1&amp;client_id=bpeditorial&amp;sign=edd5bcd3db59d354acfcaf5131e44c18e8b9d94c2146522a9c29296110b25cdc 320w,https://media.ouest-france.fr/v1/pictures/MjAyMDEyNzg3OWQ4ZDM2Y2QzNDI4ZWU3ZDBlNWI5YTJmZDdlZDk?width=375&amp;height=210&amp;focuspoint=50%2C25&amp;cropresize=1&amp;client_id=bpeditorial&amp;sign=be9fdfe9d919b0b3afe96a98d3fb2b81db8e85158815cd97f9cef533d09c0f54 375w,https://media.ouest-france.fr/v1/pictures/MjAyMDEyNzg3OWQ4ZDM2Y2QzNDI4ZWU3ZDBlNWI5YTJmZDdlZDk?width=630&amp;height=354&amp;focuspoint=50%2C25&amp;cropresize=1&amp;client_id=bpeditorial&amp;sign=6e9f95b8f54c186a2bda95eef4ca28259d69e99b9705ce8cf08c2037a6a11034 630w,https://media.ouest-france.fr/v1/pictures/MjAyMDEyNzg3OWQ4ZDM2Y2QzNDI4ZWU3ZDBlNWI5YTJmZDdlZDk?width=940&amp;height=528&amp;focuspoint=50%2C25&amp;cropresize=1&amp;client_id=bpeditorial&amp;sign=320bac4a86e8dd90f85b431677f80e539ab66bf65f9a6b00d3fef52c8c13cd09 940w&quot'
+    print (re.findall(r'(https?://[^\s]+)', string_src)[2])
     return None
 
-url = 'https://www.ledauphine.com/economie+region/alpes+region/paca+region/vallee-du-rhone+zone/france-monde'
-
-def usine_nouvelle_content(url, delay=1):
-        """This function scrapes data and description from news articles of the same
-        day or the previous day, with respect to time of collection."""
-        day = int(datetime.datetime.now().strftime("%d"))
-        response = requests.get(url)
-        soup = BeautifulSoup(response.content, "html.parser")
-        article = {}
-        article["date"] = soup.find("time")["datetime"]
-        # date_time_obj = datetime.datetime.strptime(article["date"], '%Y-%m-%dT%H:%M:%S')
-        date_time_obj = get_article_date(soup, source='UsineNouvelle')
-        print(article["date"])
-        print(date_time_obj.year)
-        date = article["date"][8:10]
-        #Check article is 0 or 1 day old
-        if day -int(date) <= delay:
-            article["url"] = url
-            article["image"] = soup.find("meta", property="og:image")["content"]
-            article["description"] = soup.find("h2").text.strip().replace('\n', ' ').replace('\r', '')\
-                    .replace('\t', '').replace('   ', '')
-            article["tag_description"] = soup.find("meta", property="og:description")["content"]
-            article["source"] = soup.find("meta", property="og:site_name")["content"]
-            #Load into database
-            # article = Article(url=url, image_url=article["image"],\
-            #         description=article["description"], source=article["source"])
-            # article.save()
-        return article
-
-
-test_url = 'https://www.usinenouvelle.com/article/huawei-va-ouvrir-sa-premiere-usine-hors-de-chine-en-alsace.N1041774'
 
 if __name__ == "__main__":
-    # article_list = collect_usine_nouvelle()
-    # print('ok')
-    # for article in article_list:
-    #     print(article["url"])
-    #     print(article["description"])
+    print('ok')
+    # test()
+    # collect_les_echos()
     # collect_usine_nouvelle()
+    # collect_ouest_france()
     # check_for_duplicates()
-    usine_nouvelle_content(test_url)
+    
