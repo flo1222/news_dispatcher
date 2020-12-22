@@ -9,6 +9,7 @@ class Site(models.Model):
 class Article(models.Model):
     url = models.CharField(max_length=300)
     image_url = models.CharField(max_length=400, null=True, blank=True)
+    title = models.CharField(max_length=400, null=True, blank=True)
     description = models.CharField(max_length=1000, null=True, blank=True)
     source = models.CharField(max_length=50, null=True, blank=True)
     pub_date = models.DateField(null=True, blank=True) 

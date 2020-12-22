@@ -33,7 +33,8 @@ sources_list = [
 # %autoreload 2
 def check_for_duplicates():
     count = 0
-    for row in Article.objects.all().reverse():
+    for row in Article.objects.all().order_by('-title'):
+    # for row in Article.objects.all().reverse():
     # for row in Article.objects.all():
         if Article.objects.filter(url=row.url).count() > 1:
             row.delete()
@@ -56,6 +57,7 @@ def get_article_date(soup, source = 'default'):
 def get_article_content(soup, source = 'default'):
     article = {}
     article["image"] = soup.find("meta", property="og:image")["content"]
+    article["title"] = soup.find("meta", property="og:title")["content"]
     article["description"] = soup.find("meta", property="og:description")["content"]
     article["source"] = soup.find("meta", property="og:site_name")["content"]
     if source == 'UsineNouvelle':
@@ -68,6 +70,7 @@ def generic_article_scraping(url, source='default', delay=1):
     day or the previous day, with respect to time of collection."""
     day = int(datetime.datetime.now().strftime("%d"))
     response = requests.get(url)
+    print(url)
     soup = BeautifulSoup(response.content, "html.parser")
     article = {}
     # article["date"] = soup.find("time")["datetime"]
@@ -82,7 +85,7 @@ def generic_article_scraping(url, source='default', delay=1):
         #Load into database
         add_article = Article(url=url, image_url=article["image"],\
                 description=article["description"], source=article["source"],\
-                pub_date = article["date"])
+                pub_date = article["date"], title = article["title"])
         add_article.save()
     return article
 
@@ -171,13 +174,14 @@ def collect_ouest_france():
         else:
             article["image"] = 'https://www.sfi.fr/wp-content/themes/unbound/images/No-Image-Found-400x264.png'
         article["description"] = bloc.find("p").text.strip()
+        article["title"] = bloc.find("h2")
         article["source"] = source
         article["date"] = get_article_date(bloc, source = source)
         article_list.append(article)
         # Load the article in the database
         add_article = Article(url=article["url"], image_url=article["image"],\
                 description=article["description"], source=article["source"],\
-                pub_date = article["date"])
+                pub_date = article["date"], title = article["title"])
         add_article.save()
     print(f'# of articles sourced from {source} = {len(article_list)}')
     return article_list
@@ -194,5 +198,5 @@ if __name__ == "__main__":
     # collect_les_echos()
     # collect_usine_nouvelle()
     # collect_ouest_france()
-    # check_for_duplicates()
+    check_for_duplicates()
     
