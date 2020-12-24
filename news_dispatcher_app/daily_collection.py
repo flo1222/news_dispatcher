@@ -42,6 +42,16 @@ def check_for_duplicates():
     print('#rows deleted = ', count)
     return None
 
+def clean_database():
+    # source = 'Ouest-France.fr'
+    count = 0
+    articles = Article.objects.filter(title = None)
+    for article in articles:
+        article.delete()
+        count += 1
+    print('#rows deleted = ', count)
+    return None
+
 def get_article_date(soup, source = 'default'):
     if source == 'UsineNouvelle':
         date = soup.find("time")["datetime"]
@@ -78,15 +88,15 @@ def generic_article_scraping(url, source='default', delay=1):
     date = article_date.day
     print(date)
     #Check article is 0 or 1 day old
-    if int(date) - day <= delay:
-        article = get_article_content(soup, source=source)
-        article["url"] = url
-        article["date"] = article_date
-        #Load into database
-        add_article = Article(url=url, image_url=article["image"],\
-                description=article["description"], source=article["source"],\
-                pub_date = article["date"], title = article["title"])
-        add_article.save()
+    # if int(date) - day <= delay:
+    article = get_article_content(soup, source=source)
+    article["url"] = url
+    article["date"] = article_date
+    #Load into database
+    add_article = Article(url=url, image_url=article["image"],\
+            description=article["description"], source=article["source"],\
+            pub_date = article["date"], title = article["title"])
+    add_article.save()
     return article
 
 
@@ -96,7 +106,8 @@ def collect_usine_nouvelle():
     The scraped content is then loaded to a database for storage."""
 
     source = 'UsineNouvelle'
-    url = 'https://www.usinenouvelle.com/quotidien-des-usines/'
+    # url = 'https://www.usinenouvelle.com/quotidien-des-usines/'
+    url = 'https://www.usinenouvelle.com/quotidien-des-usines/5/'
     base_url = 'https://www.usinenouvelle.com'
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
@@ -119,6 +130,7 @@ def collect_les_echos():
 
     source = 'LesEchos'
     url = 'https://www.lesechos.fr/pme-regions'
+    # url = 'https://www.lesechos.fr/pme-regions?page=4'
     base_url = 'https://www.lesechos.fr'
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
@@ -146,7 +158,8 @@ def collect_ouest_france():
     source = "Ouest-France.fr"
     # L'url consultée est la page 2 car elle est mieux organisée que la 1.
     # Il y aura donc un delta de date de rentrée d'information
-    url = 'https://www.ouest-france.fr/economie/entreprises/?page=2'
+    # url = 'https://www.ouest-france.fr/economie/entreprises/'
+    url = 'https://www.ouest-france.fr/economie/entreprises/?page=5'
     link_list = []
     # Selenium is needed since Ouest-France returns almost empty page from requests.
     browser = webdriver.Chrome()
@@ -174,7 +187,8 @@ def collect_ouest_france():
         else:
             article["image"] = 'https://www.sfi.fr/wp-content/themes/unbound/images/No-Image-Found-400x264.png'
         article["description"] = bloc.find("p").text.strip()
-        article["title"] = bloc.find("h2")
+        article["title"] = bloc.find("h2").text.replace("bloqué", "").strip()
+        print(article["title"])
         article["source"] = source
         article["date"] = get_article_date(bloc, source = source)
         article_list.append(article)
@@ -195,8 +209,8 @@ def test():
 if __name__ == "__main__":
     print('ok')
     # test()
-    # collect_les_echos()
-    # collect_usine_nouvelle()
-    # collect_ouest_france()
+    collect_les_echos()
+    collect_usine_nouvelle()
+    collect_ouest_france()
     check_for_duplicates()
     

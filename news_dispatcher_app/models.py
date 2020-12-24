@@ -4,7 +4,11 @@ from django.db import models
 
 class Site(models.Model):
     name = models.CharField(max_length=200)
+    usual_name = models.CharField(max_length=200, null=True, blank=True)
     siret_number = models.CharField(max_length=20, null=True, blank=True)
+    city = models.CharField(max_length=200, null=True, blank=True)
+    company = models.CharField(max_length=200, null=True, blank=True)
+    matche_count = models.IntegerField(null=True, blank=True, default=0)
 
 class Article(models.Model):
     url = models.CharField(max_length=300)
