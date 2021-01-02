@@ -7,7 +7,7 @@ load_dotenv()
 import sys
 # sys.path.append("C:/Users/flo12/Documents/004 - data/")
 # sys.path.append("C:\\Users\\flo12\\Documents\\004 - data\\")
-sys.path.append("C:\\Users\\flo12\\Documents\\004 - data\\news_dispatcher\\")
+sys.path.append("C:\\Users\\flo12\\Documents\\004_data\\news_dispatcher\\")
 # print (sys.path)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE','news_dispatcher.settings')
 import django

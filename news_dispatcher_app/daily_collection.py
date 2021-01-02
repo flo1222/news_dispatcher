@@ -7,8 +7,9 @@ load_dotenv()
 import sys
 # sys.path.append("C:/Users/flo12/Documents/004 - data/")
 # sys.path.append("C:\\Users\\flo12\\Documents\\004 - data\\")
-sys.path.append("C:\\Users\\flo12\\Documents\\004 - data\\news_dispatcher\\")
+sys.path.append("C:\\Users\\flo12\\Documents\\004_data\\news_dispatcher\\")
 # print (sys.path)
+os.environ['DJANGO_SETTINGS_MODULE'] = 'news_dispatcher.settings'
 os.environ.setdefault('DJANGO_SETTINGS_MODULE','news_dispatcher.settings')
 import django
 django.setup()
@@ -19,6 +20,10 @@ from news_dispatcher_app.models import Article, Site
 
 # Here is a list of souces to scrape everyday for content:
 sources_list = [
+    'https://www.lejournaldesentreprises.com/',
+    'https://france3-regions.francetvinfo.fr/economie',
+    'https://actu.fr/bretagne/economie',
+    'https://www.lamontagne.fr/theme/entreprendre/?page=3',
     'https://www.usinenouvelle.com/quotidien-des-usines/',
     'https://www.lesechos.fr/pme-regions',
     'https://www.ledauphine.com/economie+region/alpes+region/paca+region/vallee-du-rhone+zone/france-monde',
@@ -62,6 +67,9 @@ def get_article_date(soup, source = 'default'):
     if source == 'Ouest-France.fr':
         date = soup.find("time")["datetime"]
         date_time_obj = datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S+01:00')
+    else:
+        date = soup.find("time")["datetime"]
+        date_time_obj = datetime.datetime.strptime(date, '%Y-%m-%dT%H:%M:%S+01:00')
     return date_time_obj
 
 def get_article_content(soup, source = 'default'):
@@ -73,6 +81,8 @@ def get_article_content(soup, source = 'default'):
     if source == 'UsineNouvelle':
         article["description"] = soup.find("h2").text.strip().replace('\n', ' ').replace('\r', '')\
                 .replace('\t', '').replace('   ', '')
+    if source == 'France 3':
+        article["description"] = soup.find("div", class_="article__chapo").text.replace('\n', ' ').strip()
     return article
 
 def generic_article_scraping(url, source='default', delay=1):
@@ -82,7 +92,6 @@ def generic_article_scraping(url, source='default', delay=1):
     response = requests.get(url)
     print(url)
     soup = BeautifulSoup(response.content, "html.parser")
-    article = {}
     # article["date"] = soup.find("time")["datetime"]
     article_date = get_article_date(soup, source=source)
     date = article_date.day
@@ -197,6 +206,30 @@ def collect_ouest_france():
                 description=article["description"], source=article["source"],\
                 pub_date = article["date"], title = article["title"])
         add_article.save()
+    print(f'# of articles sourced from {source} = {len(article_list)}')
+    return article_list
+
+def collect_france3region():
+    """A function which scrapes the links and descriptions of the 
+    articles of 'Economie' of France3 régions.
+    The scraped content is then loaded to a database for storage."""
+
+    source = 'France 3'
+    url = 'https://france3-regions.francetvinfo.fr/economie'
+    # url = 'https://france3-regions.francetvinfo.fr/economie?page=2'
+    # base_url = 'https://www.lesechos.fr'
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, "html.parser")
+    link_list = []
+    # Get the url of all the articles in the main page
+    blocs = soup.find_all("div", class_="article-card__info")
+    for bloc in blocs:
+        url = bloc.find("a")["href"]
+        link_list.append(url)
+    # Next, scrape the metadata of each url, as well as the description
+    article_list= []
+    for url in link_list:
+        article_list.append(generic_article_scraping(url, source = source, delay=5))
     print(f'# of articles sourced from {source} = {len(article_list)}')
     return article_list
 
